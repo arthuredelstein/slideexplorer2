@@ -18,7 +18,6 @@
               [slide-explorer.paint :as paint]
               [slide-explorer.bind :as bind]))
 
-
 ; Create a default font render context, that can be rebound.
 ; Used by text-primitive widget to get measurements of strings
 ; on screen.
@@ -29,14 +28,21 @@
 
 (def ^:dynamic *canvas-error*)
 
-(defn show [x]
+(defn show
+  "Prints the value x to std out, and returns x."
+  [x]
   (do (pr x)
       x))
 
-(defn now []
+(defn now
+  "Returns the current time in milliseconds"
+  []
   (System/currentTimeMillis))
 
-(def degrees-to-radians (/ Math/PI 180))
+(defn degrees-to-radians
+  "Convert degrees to radians."
+  [deg]
+  (* deg (/ Math/PI 180)))
 
 (defn clip-value
   "Clips a value between min-value and max-value."
@@ -67,7 +73,7 @@
   (if (or x y rotate scale scale-x scale-y)
     (doto transform-object
       (.translate (double (or x 0)) (double (or y 0)))
-      (.rotate (* degrees-to-radians (or rotate 0.0)))
+      (.rotate (degrees-to-radians (or rotate 0.0)))
       (.scale (or scale-x scale 1.0) (or scale-y scale 1.0)))
     transform-object))
 
@@ -117,11 +123,6 @@
   [g2d color]
   (.setColor g2d (color-object color)))
 
-(defn set-gradient [g2d {:keys [x1 y1 color1
-                                x2 y2 color2]}]
-  (.setPaint g2d (GradientPaint. x1 y1 (color-object color1)
-                                 x2 y2 (color-object color2))))
-
 (defn set-gradient
   "Sets the current gradient fill."
   [g2d {:keys [x1 y1 color1 x2 y2 color2]}]
@@ -153,7 +154,9 @@
                                 dashes-array dash-phase)
                   (BasicStroke. width cap-code join-code miter-limit)))))
 
-(defn stroke? [stroke]
+(defn stroke?
+  "Determines if stroke definition describes a non-zero stroke width."
+  [stroke]
   (let [width (:width stroke)]
     (or (nil? width) (pos? width))))
 
@@ -267,7 +270,11 @@
           (first (drop-while #(-> % :type primitive-widgets not)
                      (iterate widget data)))))
 
-(defn memoize-simple [function]
+(defn memoize-simple
+  "Memoizes the last result of a function. If a subsequent call
+   to a function provides new arguments, then the memoized value
+   is updated."
+  [function]
   (let [last-computation-atom (atom [::nothing nil])]
     (fn [& args]
       (let [[last-args last-result] @last-computation-atom]
@@ -279,23 +286,27 @@
 
 (def expand-memo (memoize-simple expand))
         
-(defn transform-object [{:keys [transform l t x y w h
+(defn affine-transform
+  "Generates an AffineTransform object from a map containing
+   various geometric descriptions."
+  [{:keys [transform l t x y w h
                          scale-x scale-y scale rotate] :as m}]
    (if (or x y w h rotate scale scale-x scale-y)
     (doto (.clone (or transform (AffineTransform.)))
       (.translate (double (or x 0))
                   (double (or y 0)))
-      (.rotate (* degrees-to-radians (or rotate 0.0)))
+      (.rotate (degrees-to-radians (or rotate 0.0)))
       (.scale (or scale-x scale 1.0)
               (or scale-y scale 1.0))
       (.translate (double (/ (or w 0) -2))
                   (double (/ (or h 0) -2))))
     transform))
 
-(defn shape [{:keys [transform l t x y
-                     scale-x scale-y scale rotate] :as m} shape-obj]
+(defn shape
+  [{:keys [transform l t x y
+           scale-x scale-y scale rotate] :as m} shape-obj]
   (let [m+ (complete-coordinates m)
-        new-transform (transform-object m+)]
+        new-transform (affine-transform m+)]
     (-> m+
         (assoc :transform new-transform
                :type :shape
@@ -386,7 +397,7 @@
         h (.getHeight shape-obj)
         m+ (assoc m :w w :h h)
         m++ (complete-coordinates m+)
-        new-transform (transform-object m++)]
+        new-transform (affine-transform m++)]
     (-> m+
         (assoc :type :text-primitive
                :transform new-transform
@@ -476,7 +487,9 @@
                             (draw-primitive g2d %))
            (denest (expand-memo widgets))))))
 
-(defn draw-error [graphics e]
+(defn draw-error
+  "Takes an error object, and draws it on the graphics object."
+  [graphics e]
   (draw graphics
         [{:type :text
           :left 0
@@ -605,7 +618,6 @@
       (.addMouseMotionListener mouse-adapter))))
 
 ;; animation
-
 
 (defn animate!
   "Slowly alters reference at value-address, linearly

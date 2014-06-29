@@ -130,12 +130,12 @@
    x y color]
   (when (and x y w h color)
     (canvas/draw g
-                  [{:type :rect
-                    :l (inc (* zoom x)) :t (inc (* zoom y))
-                    :w (* zoom w) :h (* zoom h)
-                    :alpha 1
-                    :stroke {:color color
-                             :width 2}}])))
+                 [{:type :rect
+                   :l (inc (* zoom x)) :t (inc (* zoom y))
+                   :w (* zoom w) :h (* zoom h)
+                   :alpha 1
+                   :stroke {:color color
+                            :width 2}}])))
 
 (defn paint-stage-position [^Graphics2D g screen-state]
   (let [[x y] (:xy-stage-position screen-state)
