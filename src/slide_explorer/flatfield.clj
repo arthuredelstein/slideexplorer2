@@ -134,11 +134,11 @@
 
 ;; testing
 
-(defn re-flatten [in-dir out-dir flatfield-by-channel]
-  (let [out-cache (tile-cache/create-tile-cache 200 out-dir false)]
-    (doseq [[index image] (disk/read-tiles in-dir)]
-      (let [[index2 image2] (correct-indexed-image [index image] flatfield-by-channel)]
-        (store/add-to-memory-tiles out-cache index2 image2 1/256)))))
+;(defn re-flatten [in-dir out-dir flatfield-by-channel]
+;  (let [out-cache (tile-cache/create-tile-cache 200 out-dir false)]
+;    (doseq [[index image] (disk/read-tiles in-dir)]
+;      (let [[index2 image2] (correct-indexed-image [index image] flatfield-by-channel)]
+        ;(store/add-to-memory-tiles out-cache index2 image2 1/256)))))
   
 (defn show-ffbc [ffbc]
   (->> ffbc

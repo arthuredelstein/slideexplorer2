@@ -21,7 +21,6 @@
             [slide-explorer.persist :as persist]
             [slide-explorer.disk :as disk]
             [slide-explorer.positions :as positions]
-            [slide-explorer.store :as store]
             [slide-explorer.utils :as utils]
             [slide-explorer.reactive :as reactive]))
 
@@ -195,6 +194,43 @@
 
 (def image-processing-executor (Executors/newFixedThreadPool 1))
  
+(defn child-xy-index
+  "Converts an x,y index to one in a child (1/2x zoom)."
+  [n]
+  (tiles/floor-int (/ n 2)))
+
+(defn child-indices [tile-indices]
+  "Compute the indices of a child of this tile (1/2x zoom)."
+  (-> tile-indices
+     (update-in [:nx] child-xy-index)
+     (update-in [:ny] child-xy-index)
+     (update-in [:zoom] / 2)))
+
+(defn propagate-tile
+  "Create a child tile from a parent tile, and store it
+   in the memory-tile-atom."
+  [memory-tiles-atom child-index parent-index]
+  (let [child-tile (tile-cache/load-tile memory-tiles-atom child-index)
+        parent-tile (tile-cache/load-tile memory-tiles-atom parent-index)
+        new-child-tile (image/insert-quadrant
+                         parent-tile
+                         [(even? (:nx parent-index))
+                          (even? (:ny parent-index))]
+                          child-tile)]
+    (tile-cache/add-tile memory-tiles-atom child-index new-child-tile)))
+
+(defn add-to-memory-tiles
+  "Adds a tile to the memory-tiles-atom, including various zoom levels."
+  [memory-tiles-atom indices tile min-zoom]
+  (let [full-indices (assoc indices :zoom 1)]
+    (tile-cache/add-tile memory-tiles-atom full-indices tile)
+    (loop [child-index (child-indices full-indices)
+           parent-index full-indices]
+      (when (<= min-zoom (:zoom child-index))
+        (propagate-tile memory-tiles-atom child-index parent-index)
+        (recur (child-indices child-index) child-index)))))
+
+
 (defn add-tiles-at [memory-tiles
                     {:keys [nx ny nz] :as tile-index}
                     {:keys [z-origin slice-size-um
@@ -214,7 +250,7 @@
                      :nz (or nz (get-in image [:tags "SliceIndex"]))
                      :nt 0
                      :nc (or (get-in image [:tags "Channel"]) "Default")}]
-        (store/add-to-memory-tiles 
+        (add-to-memory-tiles 
           memory-tiles indices (image :proc) MIN-ZOOM)))))
     
 (defn acquire-next-tile
