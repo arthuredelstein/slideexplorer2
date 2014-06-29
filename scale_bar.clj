@@ -1,5 +1,5 @@
 (ns slide-explorer.scale-bar
-  (:require [slide-explorer.canvas1 :as canvas1]))
+  (:require [slide-explorer.canvas :as canvas]))
 
 (def log-scales-um
   [0.001 0.002 0.005
@@ -57,5 +57,5 @@
 (def scale-bar-test (atom nil))
 
 (defn bar-test []
-  (canvas1/canvas-frame scale-bar-test)
-  (canvas1/data-editor scale-bar-test))
+  (canvas/canvas-frame scale-bar-test)
+  (canvas/data-editor scale-bar-test))

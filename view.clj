@@ -10,7 +10,7 @@
     [slide-explorer.reactive :as reactive]
     [slide-explorer.tile-cache :as tile-cache]
     [slide-explorer.tiles :as tiles]
-    [slide-explorer.canvas1 :as canvas1]
+    [slide-explorer.canvas :as canvas]
     [slide-explorer.scale-bar :as scale-bar]
     [slide-explorer.image :as image]
     [slide-explorer.user-controls :as user-controls]
@@ -129,7 +129,7 @@
    {[w h] :tile-dimensions :keys [zoom scale] :as screen-state}
    x y color]
   (when (and x y w h color)
-    (canvas1/draw g
+    (canvas/draw g
                   [{:type :rect
                     :l (inc (* zoom x)) :t (inc (* zoom y))
                     :w (* zoom w) :h (* zoom h)
@@ -176,9 +176,9 @@
       (paint-position-list screen-state)
       (paint-stage-position screen-state)
       (.setTransform original-transform)
-      (canvas1/draw (when-let [pixel-size (:pixel-size-um screen-state)]
-                      (scale-bar/bar-widget (:height screen-state)
-                                       (/ pixel-size zoom scale))))
+      (canvas/draw (when-let [pixel-size (:pixel-size-um screen-state)]
+                     (scale-bar/bar-widget (:height screen-state)
+                                           (/ pixel-size zoom scale))))
       )))
 
 ;; Loading visible tiles

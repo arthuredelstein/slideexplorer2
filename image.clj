@@ -12,7 +12,7 @@
            (java.io File)
            (javax.imageio ImageIO)
            (org.micromanager.utils ImageUtils))
-  (:require [slide-explorer.canvas1 :as canvas1]
+  (:require [slide-explorer.canvas :as canvas]
             [clojure.java.io :as io]))
 
 (defmacro timer [expr]
@@ -187,7 +187,7 @@
 (defn lut-object
   "Creates an ImageJ LUT object with given parameters."
   ([color ^double min ^double max ^double gamma]
-    (let [lut (ImageUtils/makeLUT (canvas1/color-object color) gamma)]
+    (let [lut (ImageUtils/makeLUT (canvas/color-object color) gamma)]
       (set! (. lut min) min)
       (set! (. lut max) max)
       lut))
