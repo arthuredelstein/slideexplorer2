@@ -40,11 +40,11 @@
   (when pixel-size-um
     (let [{:keys [width-pixels text]} (bar-settings pixel-size-um)]
       [{:type :compound
-       :x 10 :y (- screen-height 10) :w 100 :h 100
+       :l 10 :t (- screen-height 10) :w 100 :h 0
        :children [{:type :text
                    :text text
                    :r width-pixels
-                   :b -3
+                   :t -10
                    :color :white
                    :fill true
                    :font {:name "Arial"

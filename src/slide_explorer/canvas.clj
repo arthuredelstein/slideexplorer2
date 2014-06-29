@@ -386,7 +386,6 @@
 (defn string-bounds
   "Measure the bounds of a string."
   [font-obj text]
-  ;(println *font-render-context*)
   (.getStringBounds font-obj text *font-render-context*))
 
 (defmethod widget :text
@@ -559,7 +558,6 @@
        (shapes-containing-point [x y])))
 
 (defn handle-mouse-move [e reference canvas]
-  ;(println "move" (now))
   (let [data @reference
         last-widgets-under-mouse ((meta canvas) ::last-widgets-under-mouse)
         widgets-under-mouse (set (map #(select-keys % [:mouse-in :mouse-out :shape])

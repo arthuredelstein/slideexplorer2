@@ -1,7 +1,7 @@
 (ns slide-explorer.affine
   (:import 
     (java.awt Point Shape)
-    (java.awt.geom AffineTransform Point2D)
+    (java.awt.geom AffineTransform Point2D Point2D$Double)
     (java.awt.image AffineTransformOp BufferedImage Raster)))
 
 (defn point-to-vector
