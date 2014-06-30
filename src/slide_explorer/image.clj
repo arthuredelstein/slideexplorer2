@@ -40,6 +40,9 @@
     (doto proc-host
       (.insert proc-guest x-host y-host))))
 
+(defn clone [processor]
+  (when processor (.duplicate processor)))
+
 (defn half-size
   [proc]
   (when proc
@@ -154,7 +157,7 @@
    as mosaic, but with tile inserted at half-size
    into the specified quadrant."
   [tile [left? upper?] mosaic]
-  (let [dest (or mosaic (black-processor-like tile))]
+  (let [dest (or (clone mosaic) (black-processor-like tile))]
     (insert-quadrant! dest tile [left? upper?])))
 
 ;; stats

@@ -8,7 +8,6 @@
   (:require 
     [slide-explorer.flatfield :as flatfield]
     [slide-explorer.reactive :as reactive]
-    [slide-explorer.tile-cache :as tile-cache]
     [slide-explorer.tiles :as tiles]
     [slide-explorer.canvas :as canvas]
     [slide-explorer.scale-bar :as scale-bar]
@@ -93,27 +92,26 @@
 (def flatfield-memo (memo/memo-lru flatfield/correct-indexed-image 100))
 
 (defn display-tile
-  "Loads the set of tiles specified by tile-indices from 
-   memory-tiles-atom, and combines them according to channels-map,
+  "Takes tiles from raw-tiles and combines them according to channels-map,
    returning a single display tile as a BufferedImage."
-  [memory-tiles-atom tile-indices channels-map]
-  (let [corrections (flatfield/get-flatfield-corrections memory-tiles-atom)
+  [raw-tiles tile-index channels-map]
+  (let [;corrections (flatfield/get-flatfield-corrections raw-tiles)
         channel-names (keys channels-map)
         flattened-tiles (for [channel-name channel-names]
-                          (let [tile-index (assoc tile-indices :nc channel-name)
-                                raw-tile (tile-cache/load-tile memory-tiles-atom tile-index)]
-                            ;(println tile-index)
-                            (flatfield-memo tile-index raw-tile corrections)))
-        lut-maps (map channels-map channel-names)]
-    ;(println (count flattened-tiles) lut-maps)
+                          (let [tile-index (assoc tile-index :nc channel-name)
+                                raw-tile (raw-tiles tile-index)]; (println (count raw-tiles) "Q" tile-index)
+                            (comment (println tile-index)) raw-tile
+                            ;(flatfield-memo tile-index raw-tile corrections)
+                             ))
+        lut-maps (map channels-map channel-names)];(println (.hashCode flattened-tiles))
+    ;(println (count flattened-tiles) lut-maps) 
     (overlay-memo flattened-tiles lut-maps)))
 
 ;; PAINTING
  
-(defn paint-tiles [^Graphics2D g display-tiles-atom screen-state]
+(defn paint-tiles [^Graphics2D g display-tiles screen-state]
   (doseq [tile-index (visible-tile-indices screen-state :overlay)]
-    (when-let [image (tile-cache/get-tile
-                       display-tiles-atom
+    (when-let [image (display-tiles
                        tile-index)]
       (def i1 [tile-index image])
       (let [[x y] (tiles/tile-to-pixels
@@ -160,7 +158,7 @@
 (defn paint-screen
   "Paints a slide explorer screen, with tiles, scale bar, and when appropriate,
    current stage position and positions from XY-list."
-  [graphics screen-state display-tiles-atom]
+  [graphics screen-state display-tiles]
   (let [original-transform (.getTransform graphics)
         zoom (:zoom screen-state)
         scale (screen-state :scale 1.0)
@@ -172,7 +170,7 @@
       (.translate (- x-center (int (* (:x screen-state) zoom scale)))
                   (- y-center (int (* (:y screen-state) zoom scale))))
       (scale-graphics scale)
-      (paint-tiles display-tiles-atom screen-state)
+      (paint-tiles display-tiles screen-state)
       (paint-position-list screen-state)
       (paint-stage-position screen-state)
       (.setTransform original-transform)
@@ -183,51 +181,50 @@
 
 ;; Loading visible tiles
 
-(defn load-display-tiles
+(defn generate-display-tiles
   "Creates display tiles needed for drawing."
-  [screen-state-atom memory-tile-atom display-tiles-atom]
-  (doseq [tile (needed-tile-indices @screen-state-atom :overlay)]
-    (tile-cache/add-tile display-tiles-atom
-                         tile
-                         (display-tile memory-tile-atom tile
-                                           (:channels @screen-state-atom)))))
+  [screen-state memory-tiles display-tiles-atom]
+  (doseq [tile-index (needed-tile-indices screen-state :overlay)
+         ] (let [ proc (display-tile memory-tiles tile-index
+                                           (:channels screen-state))]
+    (swap! display-tiles-atom assoc
+                         tile-index
+                         proc))))
 
-(defn load-visible-tiles
-  "Runs loads dislpay tiles needed for rendering whenever
-   screen-state-atom changes."
+(defn keep-display-tiles-updated
+  "Watch screen-state-atom and memory-tile-atom and update
+   the display tiles whenever either changes."
   [screen-state-atom
    memory-tile-atom
    display-tiles-atom]
-  (let [load-display-tiles (fn [_ _]
-                       (load-display-tiles
-                         screen-state-atom
-                         memory-tile-atom
-                         display-tiles-atom))
+  (let [update-display-tiles (fn [old new] (when (not= old new)
+                       (generate-display-tiles
+                         @screen-state-atom
+                         @memory-tile-atom
+                         display-tiles-atom)))
         agent (agent {})]
     (def agent1 agent)
-    (reactive/handle-update
+    (reactive/add-watch-simple
       screen-state-atom
-      load-display-tiles
-      agent)
-    (tile-cache/add-tile-listener!
-      memory-tile-atom
-      #(send-off agent load-display-tiles nil))))
+      update-display-tiles
+      )
+    (reactive/add-watch-simple
+      memory-tile-atom update-display-tiles)))
   
 ;; MAIN WINDOW AND PANEL
 
-(defn paint-screen-buffered [graphics screen-state-atom display-tiles-atom]
-  ;(paint-screen graphics @screen-state-atom display-tiles-atom)
+(defn paint-screen-buffered [graphics screen-state display-tiles]
   (paint/paint-buffered graphics
                        #(paint-screen %
-                                      @screen-state-atom
-                                      display-tiles-atom)))
+                                      screen-state
+                                      display-tiles)))
 
 (defn create-panel [screen-state-atom display-tiles-atom]
   (doto
     (proxy [JPanel] []
       (paintComponent [^Graphics graphics]
         (proxy-super paintComponent graphics)
-        (paint-screen-buffered graphics screen-state-atom display-tiles-atom)))
+        (paint-screen-buffered graphics @screen-state-atom @display-tiles-atom)))
     (.setBackground Color/BLACK)))
     
 (defn main-frame
@@ -250,10 +247,10 @@
   [memory-tile-atom settings]
   (let [screen-state-atom (atom (merge default-settings
                                   settings))
-        display-tiles-atom (tile-cache/create-tile-cache 1000)
-        _ (def dta display-tiles-atom)
+        display-tiles-atom (atom {})
+        _ (when (= screen-state-atom ss) (def dta display-tiles-atom))
         panel (create-panel screen-state-atom display-tiles-atom)]
-    (load-visible-tiles screen-state-atom
+    (keep-display-tiles-updated screen-state-atom
                         memory-tile-atom
                         display-tiles-atom)
     (paint/repaint-on-change panel [display-tiles-atom screen-state-atom])
@@ -276,7 +273,7 @@
 (defn show
   "Show the two-view Slide Explorer window."
   [memory-tile-atom settings]
-  (let [frame (main-frame (.getAbsolutePath (tile-cache/tile-dir memory-tile-atom)))
+  (let [frame (main-frame "X");(.getAbsolutePath (tile-cache/tile-dir memory-tile-atom)))
         screen-state-atom (view memory-tile-atom settings)
         screen-state-atom2 (view memory-tile-atom settings)
         panel1 (panel screen-state-atom)

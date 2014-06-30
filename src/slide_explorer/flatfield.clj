@@ -1,9 +1,7 @@
 (ns slide-explorer.flatfield
   (:require [clojure.java.io :as io]
-            [slide-explorer.tile-cache :as tile-cache]
             [slide-explorer.disk :as disk]
-            [slide-explorer.image :as image]
-            [slide-explorer.store :as store]))
+            [slide-explorer.image :as image]))
 
 (defn map-vals
   "Apply function f 'in place' to each value in map."
@@ -94,35 +92,27 @@
   [{:keys [zoom nc] :as index} image flatfield-corrections-map]
   (correct-image image (get-in flatfield-corrections-map [nc zoom])))
 
-;; interacting with the cache
-
-(defn images-in-cache
-  "Return a sequence of tiles from cache, corresponding to
-   a set of indices."
-  [cache indices]
-  (map #(tile-cache/get-tile cache % false) indices))
-
 (defn unzoomed-images
-  "Returns a sequence of unzoomed tiles from the cache."
-  [cache]
-  (->> @cache
+  "Returns a sequence of unzoomed tiles from the given tiles."
+  [tiles]
+  (->> tiles
        (unzoomed-indices-by-channel)
-       (map-vals (partial images-in-cache cache))))
+       (map-vals (partial select-keys tiles))))
 
 (defn compute-flatfield-corrections
-  [cache]
-  (->> cache
+  [tiles]
+  (->> tiles
        unzoomed-images
        (map-vals #(mipmap-flatfield-corrections 8 %))))
 
 (defn update-flatfield-corrections
-  [cache]
-  (alter-meta! cache assoc ::corrections (compute-flatfield-corrections cache)))
+  [tiles]
+  (with-meta tiles assoc ::corrections (compute-flatfield-corrections tiles)))
 
 (defn get-flatfield-corrections
   "Get the corrections map associated with raw tile cache."
-  [cache]
-  (::corrections (meta cache)))
+  [tiles]
+  (::corrections (meta tiles)))
 
 ;; Can I continuously update the flatfield correction image for each channel,
 ;; create zoomed-out versions, and then apply correction on the fly as
@@ -140,13 +130,13 @@
 ;      (let [[index2 image2] (correct-indexed-image [index image] flatfield-by-channel)]
         ;(store/add-to-memory-tiles out-cache index2 image2 1/256)))))
   
-(defn show-ffbc [ffbc]
-  (->> ffbc
-       vals
-       (map vals)
-       (apply concat)
-       (map image/show)
-       doall))
+;(defn show-ffbc [ffbc]
+;  (->> ffbc
+;       vals
+;       (map vals)
+;       (apply concat)
+;       (map image/show)
+;       doall))
 
 ;(defn test-generate []
 ;  (->> slide-explorer.view/mt
@@ -155,10 +145,10 @@
 ;       ;(map-vals image/show)
 ;       ))
 
-(defn transfer [in-cache]
-  (let [in-dir (tile-cache/tile-dir in-cache)
-        out-dir (io/file in-dir "flat1")]
-    (re-flatten in-dir out-dir (compute-flatfield-corrections in-cache))))
-        
-        
-                      
+;(defn transfer [in-cache]
+;  (let [in-dir (tile-cache/tile-dir in-cache)
+;        out-dir (io/file in-dir "flat1")]
+;    (re-flatten in-dir out-dir (compute-flatfield-corrections in-cache))))
+;        
+;        
+                     

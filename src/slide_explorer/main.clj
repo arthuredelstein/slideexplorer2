@@ -210,20 +210,20 @@
   "Create a child tile from a parent tile, and store it
    in the memory-tile-atom."
   [memory-tiles-atom child-index parent-index]
-  (let [child-tile (tile-cache/load-tile memory-tiles-atom child-index)
-        parent-tile (tile-cache/load-tile memory-tiles-atom parent-index)
+  (let [child-tile (@memory-tiles-atom child-index)
+        parent-tile (@memory-tiles-atom parent-index)
         new-child-tile (image/insert-quadrant
                          parent-tile
                          [(even? (:nx parent-index))
                           (even? (:ny parent-index))]
                           child-tile)]
-    (tile-cache/add-tile memory-tiles-atom child-index new-child-tile)))
+    (swap! memory-tiles-atom assoc child-index new-child-tile)))
 
 (defn add-to-memory-tiles
   "Adds a tile to the memory-tiles-atom, including various zoom levels."
   [memory-tiles-atom indices tile min-zoom]
   (let [full-indices (assoc indices :zoom 1)]
-    (tile-cache/add-tile memory-tiles-atom full-indices tile)
+    (swap! memory-tiles-atom assoc full-indices tile)
     (loop [child-index (child-indices full-indices)
            parent-index full-indices]
       (when (<= min-zoom (:zoom child-index))
@@ -352,7 +352,7 @@ Would you like to run automatic pixel calibration?"
   
 (defn new-acquisition-session [screen-state-atom memory-tiles-atom]
   (let [acquired-images (atom #{})
-        dir (tile-cache/tile-dir memory-tiles-atom)
+       ; dir (tile-cache/tile-dir memory-tiles-atom)
         acq-settings (create-acquisition-settings)
         affine-stage-to-pixel (origin-here-stage-to-pixel-transform)
         z-origin (if-let [z-drive (focus-device)]
@@ -372,7 +372,7 @@ Would you like to run automatic pixel calibration?"
               :pixel-size-um (pixel-size-um affine-stage-to-pixel)
               :z-origin z-origin
               :slice-size-um 1.0
-              :dir dir
+             ; :dir dir
               :mode :explore
               :channels (initial-lut-maps first-seq)
               :tile-dimensions [width height]
@@ -421,7 +421,7 @@ Would you like to run automatic pixel calibration?"
     (let [settings (if-not new?
                      (load-settings dir)
                      {:tile-dimensions [512 512]})
-          memory-tiles-atom (tile-cache/create-tile-cache 200 dir (not new?))
+          memory-tiles-atom (atom {})
           screen-state-atom (view/show memory-tiles-atom settings)]
       (if new?
         (new-acquisition-session screen-state-atom memory-tiles-atom)
